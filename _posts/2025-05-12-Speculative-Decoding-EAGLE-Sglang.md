@@ -93,6 +93,21 @@ I think this change is because only the last hidden states are not enough to cap
 
 ### Sglang Code Walkthrough
 
+#### Server Args
+
+Three server args that user can tune when enabling eagle3 in sglang are important for understanding the process and are mentioned a few times in this walkthrough:
+- speculative_num_steps: How many draft forward passes we run before verifying.
+- speculative_num_draft_tokens: The number of tokens proposed in a draft.
+- speculative_topk: Each draft pass will generate topk tokens.
+
+A sample command:
+
+```bash
+python3 -m sglang.launch_server --model Meta-Llama-3.1-8B-Instruct --speculative-algorithm EAGLE3 --speculative-draft-model-path sglang-EAGLE3-Llama-3.1-Instruct-8B --speculative-num-steps 5 --speculative-eagle-topk 4 --speculative-num-draft-tokens 16 --mem-fraction 0.7 --dtype float16 --trust-remote-code
+```
+
+Note: If you want to draft 3 tokens and draw top 2 tokens for each draft step, you only need 1 draft pass. Because the forward extend from last round will always provide 1 more token.
+
 #### Model Code
 
 Let's use LlamaForCausalLMEagle as an example to illustrate the model architecture. The model contains three main components:

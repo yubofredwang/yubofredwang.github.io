@@ -20,7 +20,9 @@ I am really curious in how this is done and spent some time to walk through the 
 
 ### Speculative Decoding
 
-[Speculative decoding](https://arxiv.org/pdf/2211.17192) is a technique used to accelerate the inference process. The concept is simple, we use a smaller model to "draft" a few candidate tokens and use the target model we intend to serve to "verify" if the tokens should be rejected or accepted. "Draft" here means running multiple forward passes with the smaller model. "Verify" means running one forward pass with the target model over all the candidate tokens. Since all tokens go through forward pass at the same time, this verify step is done in parallel.
+> [Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/pdf/2211.17192)
+
+Speculative decoding is a technique used to accelerate the inference process. The concept is simple, we use a smaller model to "draft" a few candidate tokens and use the target model we intend to serve to "verify" if the tokens should be rejected or accepted. "Draft" here means running multiple forward passes with the smaller model. "Verify" means running one forward pass with the target model over all the candidate tokens. Since all tokens go through forward pass at the same time, this verify step is done in parallel.
 
 Given the probability of token `x` from target model is `p(x)`, and probability from draft model is `q(x)`. The pseudocode is something like this:
 

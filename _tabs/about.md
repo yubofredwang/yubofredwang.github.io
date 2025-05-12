@@ -8,5 +8,5 @@ This is [Yubo Wang](https://www.linkedin.com/in/yubo-wang-057616117/), a softwar
 
 I have a 7 year old cat named 鼻妞. She kneads really good dough.
 
-![Niu Niu](assets/biniu.png)
+![Niu Niu](assets/biniu.jpg)
 

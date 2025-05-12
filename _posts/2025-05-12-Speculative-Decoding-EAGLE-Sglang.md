@@ -43,7 +43,7 @@ while x = next_token():
 return output_tokens
 ```
 
-We won't cover details of original speculative decoding algorithm here since EAGLE is the focus of this post. Please refer to the original paper for more details.
+<i> We won't cover details of original speculative decoding algorithm here since it is not the focus of this post. Please refer to the original paper for more details. The actual implementation in Sglang uses a slightly different sampling method. </i>
 
 ### EAGLE, EAGLE2 and EAGLE3
 

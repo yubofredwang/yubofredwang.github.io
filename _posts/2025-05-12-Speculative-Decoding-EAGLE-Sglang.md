@@ -398,6 +398,12 @@ assign_req_to_token_pool[(bs,)](
 ```
 
 
-Thanks for reading all the way through! This is for sure one of the more complicated processes and challenging code to understand. Let's wrap up with a famous quote from Tom Nook:
+Thanks for reading all the way through! This is for sure one of the more complicated processes and challenging code to understand. My learnings from diving into the codebase is:
+1. Understand the details of algorithm/design first before diving into the code. This helps a lot in understanding the code.
+2. If possible, avoid modifying variables in place. In-place modifications are hard to keep track of and the developers of other parts of the code can have false assumptions.
+3. There are triton, cutlass kernels in sglang codebase. I think they can be documented better too.
+4. The overall design of the worker is general enough to be extended to another speculative decoding algorithm. However, it will be more helpful if EAGLEWorker class can be abstracted out to a base class.
+
+Also, never forget this:
 
 > <i>"But We Don't Do Things Because They Are Easy Hm? We Do Them Because They Are Profitable." - Tom Nook </i>

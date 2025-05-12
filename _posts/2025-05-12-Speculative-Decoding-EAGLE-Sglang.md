@@ -24,7 +24,7 @@ I am really curious in how this is done and spent some time to walk through the 
 
 Speculative decoding is a technique used to accelerate the inference process. The concept is simple, we use a smaller model to "draft" a few candidate tokens and use the target model we intend to serve to "verify" if the tokens should be rejected or accepted. "Draft" here means running multiple forward passes with the smaller model. "Verify" means running one forward pass with the target model over all the candidate tokens. Since all tokens go through forward pass at the same time, this verify step is done in parallel.
 
-Given the probability of token `x` from target model is `p(x)`, and probability from draft model is `q(x)`. The pseudocode is something like this:
+Given the probability of token `x` from target model is `target_probs`, and probability from draft model is `draft_probs`. The pseudocode is something like this:
 
 ```python
 output_tokens = []
@@ -32,12 +32,12 @@ while x = next_token():
     # Accept token if either:
     # 1. Target model has higher probability over the token
     # 2. Target model has lower probability but the difference is small.
-    if q(x) <= p(x) or p(x) / q(x) > some_threshold:
+    if target_probs[x] >= draft_probs[x] or target_probs[x] / draft_probs[x] <= sample_uniform(0, 1):
         tokens.append(x)
     else:
         # Resample to guarantee always a new token is generated.
-        p_new(x) = norm(max(0, p(x) - q(x)))
-        sample x from p_new(x)
+        p_new = norm(max(0, target_probs[x] - draft_probs[x]))
+        sample x from p_new
         output_tokens.append(x)
         break
 return output_tokens
@@ -398,6 +398,6 @@ assign_req_to_token_pool[(bs,)](
 ```
 
 
-Thanks for reading all the way through! This is for sure one of the more complicated processes and challenging code to understand. Feel free to leave a comment if you want to discuss anything. Let's wrap up with a famous quote from Tom Nook:
+Thanks for reading all the way through! This is for sure one of the more complicated processes and challenging code to understand. Let's wrap up with a famous quote from Tom Nook:
 
 > <i>"But We Don't Do Things Because They Are Easy Hm? We Do Them Because They Are Profitable." - Tom Nook </i>

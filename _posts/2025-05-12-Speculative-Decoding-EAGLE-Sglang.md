@@ -22,28 +22,38 @@ I am really curious in how this is done and spent some time to walk through the 
 
 > [Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/pdf/2211.17192)
 
-Speculative decoding is a technique used to accelerate the inference process. The concept is simple, we use a smaller model to "draft" a few candidate tokens and use the target model we intend to serve to "verify" if the tokens should be rejected or accepted. "Draft" here means running multiple forward passes with the smaller model. "Verify" means running one forward pass with the target model over all the candidate tokens. Since all tokens go through forward pass at the same time, this verify step is done in parallel.
+Speculative decoding is a technique used to accelerate the inference process. The concept is simple, we use a smaller model to "draft" a few candidate tokens and use the target model we intend to serve to "verify" if the tokens should be rejected or accepted. "Draft" here means running multiple forward passes with the smaller model. "Verify" means running one forward pass with the target model over all the candidate tokens. Since all tokens go through forward pass at the same time, this verify step is done in parallel, and this forward pass has a better compute/memory efficiency than the typical autoregressive generation using the same model. When a token is rejected, all the tokens after it are discarded, the algorithm will resample one token from the residual distribution between target distribution and draft distribution.
 
-Given the probability of token `x` from target model is `target_probs`, and probability from draft model is `draft_probs`. The pseudocode of the sampling algorithm when verifying looks like:
+Given the probability distribution that token `x` is sampled in target model is `target_p`, and probability distribution from draft model is `draft_p`. The pseudocode of the sampling algorithm looks like:
 
 ```python
-output_tokens = []
-while x = next_token():
-    # Accept token if either:
-    # 1. Target model has higher probability over the token
-    # 2. Target model has lower probability but the difference is small.
-    if target_probs[x] >= draft_probs[x] or target_probs[x] / draft_probs[x] <= sample_uniform(0, 1):
-        tokens.append(x)
+candidates, output_tokens, draft_p = [], [], []
+# Propose candidates
+for i in range(draft_steps):
+    p = M_draft.forward(prefix + candidates)
+    x = sample(p)
+    draft_p.append(p)
+    candidates.append(y)
+
+# In parallel, verify each candidate token
+for i, token in enumerate(candidates) in parallel:
+    target_p = M_target.forward(prefix + token)
+    if sample_uniform(0, 1) <= min(1.0, target_p[i] / draft_p[i]):
+        # Accepted: 
+        # 1. target probability is higher, always accept.
+        # 2. target probability is lower, accept with probability p_target / p_draft.
+        output_tokens.append(token)
     else:
-        # Resample to guarantee always a new token is generated.
-        p_new = norm(max(0, target_probs[x] - draft_probs[x]))
-        sample x from p_new
-        output_tokens.append(x)
+        # Rejected: now sample from the residual distribution
+        token = sample(normalized(max(0, p_target - p_draft)))
+        output_tokens.append(token)
         break
+
 return output_tokens
 ```
 
-<i> We won't cover details of original speculative decoding algorithm here since it is not the focus of this post. Please refer to the original paper for more details. The actual implementation in Sglang uses a slightly different sampling method. </i>
+> Quite magical, isn't it? The original paper has a proof on why this works. We won't cover details here since it is not the focus of this post. Also, the actual implementation in Sglang uses a slightly different sampling method. 
+{: .prompt-info }
 
 ### EAGLE, EAGLE2 and EAGLE3
 
@@ -151,7 +161,7 @@ class LlamaForCausalLMEagle(LlamaForCausalLM):
 
 During eagle worker initialization, `draft_model_runner.model.set_embed_and_head(embed, head)` will be called to set the weights of the embedding layer and LM head from the target model.
 
-EAGLE3 model is slightly different:
+<b> EAGLE3 model is slightly different: </b>
 1. lm_head's weights are loaded from the draft model instead of taking from the target model. Thus, during eagle3 worker intialization, only embedding layer is set by `draft_model_runner.model.set_embed(embed)`.
 2. Eagle3 also sets `capture_aux_hidden_states=True` which means the hidden states produced from the decoder layer are kept during the draft. `set_eagle3_layers_to_capture()` will be triggered on the target model with `layers_to_capture = [2, num_layers // 2, num_layers - 3].` which corresponds to low, mid and high.
 3. First draft step uses the target model's hidden states, which is a concatenation of 3 hidden states. The following draft steps use the aux hidden states captured from the previous draft step.

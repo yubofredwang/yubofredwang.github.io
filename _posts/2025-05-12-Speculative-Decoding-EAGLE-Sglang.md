@@ -125,6 +125,8 @@ Let's use LlamaForCausalLMEagle as an example to illustrate the model architectu
 - AutoRegression Head: This layer consists of one decoder layer and a fully connected layer. The layer is of dimension (bs, seq_len, 2*hidden_size). It takes the concatenated token embedding and hidden states as input and generates a hidden states "f" of dimension (bs, seq_len, hidden_size).
 - LM Head: This layer takes the hidden states "f" and generates the final output probability distribution.
 
+> In Sglang, the model implementation always generates hidden states instead of a token directly. The hidden states will be passed into logits_processor and sampler to generate a token.
+{: .prompt-tip }
 
 ```python
 # Code modified for illustration purpose
@@ -165,7 +167,10 @@ During eagle worker initialization, `draft_model_runner.model.set_embed_and_head
 1. lm_head's weights are loaded from the draft model instead of taking from the target model. Thus, during eagle3 worker intialization, only embedding layer is set by `draft_model_runner.model.set_embed(embed)`.
 2. Eagle3 also sets `capture_aux_hidden_states=True` which means the hidden states produced from the decoder layer are kept during the draft. `set_eagle3_layers_to_capture()` will be triggered on the target model with `layers_to_capture = [2, num_layers // 2, num_layers - 3].` which corresponds to low, mid and high.
 3. First draft step uses the target model's hidden states, which is a concatenation of 3 hidden states. The following draft steps use the aux hidden states captured from the previous draft step.
-4. The model now goes as fc(first step) or aux-> decoder(captures aux for next step) -> norm -> logits_processor(lm_head) -> sampler -> tokens.
+4. The model now goes as fc(first step) or aux_hidden_states -> decoder(captures aux_hidden_states for next step) -> norm -> logits_processor(lm_head) -> sampler -> tokens.
+
+> Aux hidden states are just hidden states kept from model forward to provide auxiliary information for the next draft step.
+{: .prompt-tip }
 
 ```python
 # Code modified for illustration purpose

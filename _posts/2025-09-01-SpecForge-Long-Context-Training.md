@@ -1,6 +1,6 @@
 ---
 title: Flex Attention and Triton, Supporting Long Context Training in SpecForge
-date: 2025-05-12 10:33:00 -0700
+date: 2025-09-02 20:00:00 -0700
 categories: [LLM]
 tags: [training, sglang, SpecForge]
 author: yubowang

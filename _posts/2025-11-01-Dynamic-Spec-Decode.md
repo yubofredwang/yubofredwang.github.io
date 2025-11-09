@@ -41,15 +41,21 @@ FFN counts about 70% of the parameters of a decoder layer while attention layer 
 Our theoretical maximum arithmetic intensity for a H100 GPU can be calculated as:
 
 > H100 FLOPS = 1.979e15 FLOPs/s = 1979 TFlops/s
+
 > H100 Memory Bandwidth = 3.35TB/s
+
 > 1979 TFlops/s / 3.35TB/s ~= 298
 
 ### Matrix Multiplication Analysis
 
 > FLOPs = B * hidden_dimension * intermediate_dimension
+
 >Memory Traffic = B * hidden_dimension + hidden_dimension * intermediate_dimension + B * intermediate_dimension
+
 > Arithmetic Intensity = FLOPs / Memory Traffic = B Flops/Byte
+
 > B = 1 for batch size = 1
+
 > Arithmetic Intensity = B = 1 Flops/Byte
 
 ### Attention Analysis
@@ -57,7 +63,9 @@ Our theoretical maximum arithmetic intensity for a H100 GPU can be calculated as
 Due to the nature of autoregressive generation, Q = B during the decoding phase for each query in the batch and KV cache can be 10000x larger than Q. Let's do some simple roofline model analysis for batch size = 1 and kv cache length = 1000 for an 8B model with MHA using Flash Attention.
 
 > FLOPs = 4 * B * head_num * head_dim
+
 > Memory Traffic = 2 * B * head_num * head_dim * 2(bf16) = 4 * B * head_num * head_dim
+
 > Arithmetic Intensity = FLOPs / Memory Traffic ~= 1 Flops/Byte
 
 As you can see, for the attention operation, even with Flash Attention, the compute power of our GPU is extremely underutilized(298x). We can use GQA or even MQA to further improve the arithmetic intensity. GQA is 298 / 8 ~= 37x, MQA is 298 / 32 ~= 10x. More importantly, the arithmetic intensity does not depend on the batch size or the context length!
@@ -81,35 +89,39 @@ For a regular decoding, the arithmetic intensity is independent of the batch siz
 Now let's calculate the speed up effect for small batch size scenario. Let's assume our average accept length for each step is 3 tokens with 16 tokens proposed for each step. Now our theoretical speed up for decoding is:
 
 > T(reg) = regular decode time per step
-> T(ver) = target verify time per step
+
+> T(verify) = target verify time per step
+
 > T(draft) = draft time per step
-> Speed up = T(reg) / (T(ver) + T(draft) / 3)
+
+> Speed up = 3 * T(reg) / (T(verify) + T(draft))
 
 Again, quoting from the paper [Mind the Memory Gap: Unveiling GPU Bottlenecks in Large-Batch LLM Inference](https://arxiv.org/pdf/2503.08311):
 
 <img src="assets/decode_slowdown_batch_size.png" alt="Decode Slowdown Batch Size" width="80%"/>
 
 
-We can see that the slowdown is almost linear with the batch size at small batch size.
+We can see that the slowdown is almost linear with the batch size at small batch size. This is because at memory-bandwidth bound, small batches are far from saturating the 3.35TB/s memory bandwidth. Thus, the increase in batch size do not increase the latency by much. It would take ~400 batch size to saturate the memory bandwidth completely.
 
 > T(ver) = 1.5 x T(reg), and T(draft) ~= 1/20 x T(reg)
+
 > Speed up ~= 3 / 1.5 = 2
 
-We roughly get a 2x speed up for speculative decoding at batch size = 1, number of proposed tokens = 16. In practice, we don't have less improvement due to factors like CPU overheads, synchronization overheads, etc. Also, tree mask attention is not very easy to optimize compared to causal attention.
+We roughly get a 2x speed up for speculative decoding at batch size = 1, number of proposed tokens = 16. In practice, we don't have as much improvement due to factors like CPU overheads, synchronization overheads, etc. Also, tree mask attention is not very easy to optimize compared to causal attention.
 
 ### When does speculative decoding loose its magic?
 
 <img src="assets/decode_time_spent_on_parts.png" alt="Time Spent on Parts" width="80%"/>
 
-Now let's change the scenario to a larger batch size. According to a research done by augment code, at larger batch size like 2048 with context length 8192. Now the model latency almost evenly split between attention and matrix multiplication. In our case, we have 8x less context length but also 8x smaller batch size. However, this batch size still enough to shift our matrix multiplications into computation bound. Under this scenario, more batch size introduced by speculative decoding will result in longer latency for the matrix multiplication part. And for the attention opeartion, because the runtime complexity is O(n^2), the latency will scale quadratically with the input sequence length. As a result, the speculative decoding will not be beneficial for larger batch size.
+Now let's change the scenario to a larger batch size. According to a research done by [augment code](https://www.augmentcode.com/blog/rethinking-llm-inference-why-developer-ai-needs-a-different-approach), at larger batch size like 2048 with context length 8192. Now the model latency almost evenly split between attention and matrix multiplication. In our case, we have 8x less context length but also 8x smaller batch size. However, this batch size still enough to shift our matrix multiplications into computation bound. Under this scenario, more batch size introduced by speculative decoding will result in longer latency for the matrix multiplication part. And for the attention opeartion, because the runtime complexity is O(n^2), the latency will scale quadratically with the input sequence length. As a result, the speculative decoding will not be beneficial for larger batch size.
 
 At this stage, our total runtime will increase linearly with the batch size. Given the same acceptance length, the speed up will be:
 
 > T(ver) = 16 x T(reg), and T(draft) ~= 1/20 x T(reg)
+
 > Speed up ~= 3 / 16 ~= 0.1875
 
 We are not getting worse inference speed without getting higher throughput.
-
 
 Here is the benchmark result for speculative decoding with 32 proposed tokensat different concurrency levels for a Qwen3-4B model. We lost speed up at batch size = 16. This is because we are at equivalently 32 * 16 = 512 batch size. This is already at computation bound and the latency increase per step cancels out the multiple tokens accepted. We compare between vLLM baseline, SGLang baseline, vLLM ngram and SGLang EAGLE3.
 
@@ -140,18 +152,17 @@ We have implemented a dynamic speculative decoding strategy on top of SGLang EAG
 1. Dynamically adjust the number of proposed tokens for verification.
 2. Turn off speculative decoding completely given a pre-determined threshold.
 
-#### Dynamic SpecDecode Config
+##### Dynamic SpecDecode Config
 
 We have noticed that topk branching in draft tree has less impact on the average acceptance length. Besides, our benchmark indicates that the number of draft steps has a relatively small impact on the overall latency. In addition, because a lot of kernel operations can not be easily adoptive to the number of draft steps. e.g. tree attention mask generation, kv cache allocation, etc. Here is the measured time span in each stage during EAGLE3 speculative decoding.
 
 <img src="assets/spec_decode_pie.png" alt="Time Span (Verify vs Draft vs Draft Extend)" />
 
-#### Turning off Spec Decode
+##### Turning off Spec Decode
 
 We pre-determine a batch size when spec decode does not provide any speed up through benchmarking. Turning off spec decode means target model runs regular decode step by step.
 
-
-#### Implementation Details
+##### Implementation Details
 
 Dynamically changing the topk in the draft tree is relatively easy because most of the kernel operations are not affected by the number of topk. Turning off spec decode needs more careful treatment because of continuous batching. We need to treat entering from spec decode to regular decode and from regular decode to spec decode differently. Besides, we need to run an additinoal "draft extend" step after target regular decode to keep the kv cache consistent for generations when spec decode is turned back on. The process can be summarized in the following diagram:
 

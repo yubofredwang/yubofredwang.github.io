@@ -33,7 +33,7 @@ for i in range(draft_steps):
     p = M_draft.forward(prefix + candidates)
     x = sample(p)
     draft_p.append(p)
-    candidates.append(y)
+    candidates.append(x)
 
 # In parallel, verify each candidate token
 for i, token in enumerate(candidates) in parallel:

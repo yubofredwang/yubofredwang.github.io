@@ -4,17 +4,17 @@ date: 2025-11-01 10:00:00 -0700
 categories: [LLM]
 tags: [inference, sglang]
 author: yubowang
-description: This post introduces the journey of dynamic speculative decoding in SGLang and covers a bit on our spec decode training setup at Linkedin.
+description: This post introduces the journey of dynamic speculative decoding in SGLang and covers a bit on our spec decode training setup at LinkedIn.
 math: true
 ---
 
 In the previous post, I covered the training techniques and optimizations regarding to EAGLE3 speculative decoding. We are able to create a fairly good draft model ready to be served. Thus, the question is: How effective is speculative decoding in practice? What are the scenarios where speculative decoding can be beneficial? How do we tune our serving configurations to get the best performance?
 
-This post will cover the explorations and discussions on our finding at Linkedin. We propose a dynamic speculative decoding approach to enable the best performance under different scenarios.
+This post will cover explorations and discussions from my LinkedIn work. We propose a dynamic speculative decoding approach to enable the best performance under different scenarios.
 
 ### Problem Context
 
-At Linkedin, we are using a series LLM models as assistants such as Sales Assistant, Hiring Assistant, etc. Thinking and reasoning is often needed for these use cases. In practice, each request would have around 1000 tokens prompt and generate around 600 tokens response. The cache hit rate is around 15% for these use cases. The analysis in the following section heavily relies on these assumptions.
+At LinkedIn, we used a series of LLM models as assistants such as Sales Assistant, Hiring Assistant, etc. Thinking and reasoning was often needed for these use cases. In practice, each request would have around 1000 tokens prompt and generate around 600 tokens response. The cache hit rate was around 15% for these use cases. The analysis in the following section heavily relies on these assumptions.
 
 ### What matters for speculative decoding?
 

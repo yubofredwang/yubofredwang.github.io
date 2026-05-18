@@ -8,9 +8,9 @@ description: This post summarizes how we used Flex Attention and custom triton k
 math: true
 ---
 
-Earlier this year, I had a post on how EAGLE3 speculative decoding works in SGLang. EAGLE3 has an advantage over MTP(Multi-Token Prediction) as MTP is usually trained together during the pre-training phase. However, EAGLE3 can be trained seperately. As Linkedin fine-tune open source LLMs most of the time, EAGLE3 is a great fit for our use cases.
+Earlier this year, I had a post on how EAGLE3 speculative decoding works in SGLang. EAGLE3 has an advantage over MTP(Multi-Token Prediction) as MTP is usually trained together during the pre-training phase. However, EAGLE3 can be trained seperately. At LinkedIn, where we fine-tuned open source LLMs most of the time, EAGLE3 was a great fit for our use cases.
 
-SGLang community has released a open source project named SpecForge, which is a framework for training speculative decoding draft models, particularly EAGLE3, to speed up inference of LLMs. We quickly adopted SpecForge into Linkedin's internal use cases such as LLM-as-a-Judge, Agentic LLMs. During the training, we encountered challenges to scale the training up in the long context scenarios. Especially for the agentic use cases, our training data can easily reach 16K or even 32K tokens in length. In this post, I will summarize how we used Flex Attention and custom triton kernels to reduce the memory footprint and increase training speed.
+SGLang community has released a open source project named SpecForge, which is a framework for training speculative decoding draft models, particularly EAGLE3, to speed up inference of LLMs. We quickly adopted SpecForge into LinkedIn's internal use cases such as LLM-as-a-Judge and Agentic LLMs. During the training, we encountered challenges to scale the training up in the long context scenarios. Especially for the agentic use cases, our training data can easily reach 16K or even 32K tokens in length. In this post, I will summarize how we used Flex Attention and custom triton kernels to reduce the memory footprint and increase training speed.
 
 The improvements are:
 
@@ -270,5 +270,4 @@ Here is the benchmark results of the peak memory reduction:
 | (1, 8192, 32000)   | 20.48        | 13.56       | 1.51x   | 21.48            | 14.65           | 31.8%       |
 | (1, 8192, 64000)   | 41.14        | 48.11       | 0.86x   | 29.30            | 22.46           | 23.3%       |
 | (1, 16384, 32000)  | 41.11        | 26.95       | 1.53x   | 42.97            | 29.30           | 31.8%       |
-
 

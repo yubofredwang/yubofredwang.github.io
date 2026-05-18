@@ -16,10 +16,10 @@ timezone:
 
 title: Nook Nook # the main title
 
-tagline: Yes, yes, I work on AI Infra at Linkedin.
+tagline: Yes, yes, I work on inference engines at Together AI.
 
 description: >- # used by seo meta and the atom feed
-  A personal tech blog post by Yubo Wang. Mainly about AI infra and Large Language Models's sota works.
+  A personal tech blog by Yubo Wang, mainly about AI infrastructure, inference engines, and LLM systems work.
 
 # Fill in the protocol & hostname for your site.
 # E.g. 'https://username.github.io', note that it does not end with a '/'.
@@ -35,7 +35,7 @@ social:
   email: yubowang2019@gmail.com
   links:
     # The first element serves as the copyright owner's link
-    - https://www.linkedin.com/in/yubo-wang-057616117/ # change to your Twitter homepage
+    - https://www.linkedin.com/in/yubo-wang-057616117/ # change to your LinkedIn homepage
     - https://github.com/yubofredwang # change to your GitHub homepage
     # Uncomment below to add more social links
     # - https://www.facebook.com/username
